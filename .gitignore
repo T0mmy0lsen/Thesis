@@ -1,0 +1,7 @@
+/logs/
+/cache/
+/saved_models/
+/models/logs/
+/models/demo/input/
+/models/demo/aclImdb/
+/logic/input/
