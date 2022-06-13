@@ -149,7 +149,7 @@ class WordEmbedding:
         # Vectorize the data in text_ds.
         text_vector_ds = text_ds.batch(1024).prefetch(WordEmbedding.AUTOTUNE).map(vectorize_layer).unbatch()
 
-        sequences = list(text_vector_ds.as_numpy_iterator())
+        sequences = list(text_vector_ds.as_numpy_iterator())  # It gets slow from this point
 
         targets, contexts, labels = self.generate_training_data(
             sequences=sequences,
@@ -157,6 +157,8 @@ class WordEmbedding:
             num_ns=8,
             vocab_size=vocab_size,
             seed=WordEmbedding.SEED)
+
+        exit(0)
 
         targets = np.array(targets)
         contexts = np.array(contexts)[:, :, 0]
@@ -197,6 +199,31 @@ class WordEmbedding:
             out_v.write(f'{word} ' + ' '.join([str(x) for x in vec]) + "\n")
         out_v.close()
 
+    def write_out(self, targets, contexts, labels, idx):
+
+        # Targets
+        str_data = "\n".join([str(x) for x in targets])
+        if len(str_data) > 0:
+            f = open(f'{config.BASE_PATH}/cache/word_embeddings/targets_{idx}.dat', 'a')
+            f.write(str_data)
+            f.close()
+
+        # Context
+        tmp = [e.numpy().flatten() for e in contexts]
+        str_data = "\n".join([", ".join([str(y) for y in x]) for x in tmp])
+        if len(str_data) > 0:
+            f = open(f'{config.BASE_PATH}/cache/word_embeddings/contexts_{idx}.dat', 'a')
+            f.write(str_data)
+            f.close()
+
+        # Labels
+        tmp = [e.numpy().flatten() for e in labels]
+        str_data = "\n".join([", ".join([str(y) for y in x]) for x in tmp])
+        if len(str_data) > 0:
+            f = open(f'{config.BASE_PATH}/cache/word_embeddings/labels_{idx}.dat', 'a')
+            f.write(str_data)
+            f.close()
+
     # Generates skip-gram pairs with negative sampling for a list of sequences
     # (int-encoded sentences) based on window size, number of negative samples
     # and vocabulary size.
@@ -204,6 +231,7 @@ class WordEmbedding:
     def generate_training_data(self, sequences, window_size, num_ns, vocab_size, seed):
         # Elements of each training example are appended to these lists.
         targets, contexts, labels = [], [], []
+        idx = 0
 
         # Build the sampling table for `vocab_size` tokens.
         sampling_table = tf.keras.preprocessing.sequence.make_sampling_table(vocab_size)
@@ -245,4 +273,10 @@ class WordEmbedding:
                 contexts.append(context)
                 labels.append(label)
 
+            if idx % 100000 == 0:
+                self.write_out(targets, contexts, labels, idx)
+                targets, contexts, labels = [], [], []
+            idx = idx + 1
+
+        self.write_out(targets, contexts, labels, idx)
         return targets, contexts, labels

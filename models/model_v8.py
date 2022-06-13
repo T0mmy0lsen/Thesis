@@ -41,6 +41,7 @@ p = Prepare(table=table, preprocess=False, limit=80000)
 df = pd.read_csv(f'{config.BASE_PATH}/cache/{table}.csv')
 
 if 'text' not in df.columns:
+
     df['text'] = df.apply(lambda x: BeautifulSoup(x['description'], 'html.parser').text, axis=1)
     df['text'] = df.apply(lambda x: x.text.replace(u'\u00A0', ' '), axis=1)
     df['text'] = df.apply(lambda x: re.sub('\n', ' ', x['text']), axis=1)

@@ -8,12 +8,9 @@ from keras.preprocessing.text import Tokenizer
 import config
 import pandas as pd
 
-from helpers.data import Data
-
 from logic.PreprocessingLabel import PreprocessingLabel
 from logic.PreprocessingText import PreprocessingText
 from logic.WordEmbedding import WordEmbeddingLoader
-from objs.Value import Value
 
 
 class PrepareTime:
@@ -102,9 +99,11 @@ class Prepare:
 
                 # Get all data or a limited set.
                 if limit is not None:
-                    self._df = Data().get_limit(table, limit)
+                    # self._df = Data().get_limit(table, limit)
+                    pass
                 else:
-                    self._df = Data().get(table)
+                    # self._df = Data().get(table)
+                    pass
 
                 # Use default preprocessing pipeline
                 if preprocess:
@@ -144,7 +143,7 @@ class Prepare:
 
             self._df = pd.read_excel(f'{config.BASE_PATH}/cache/{self.table}.xlsx')
 
-            v = Value()
+            # v = Value()
             w = WordEmbeddingLoader()
             max_length = 300
 
@@ -176,13 +175,14 @@ class Prepare:
                 key = f'{self.table}'
                 value = f'{self._df.iloc[idx].processCategory} {sentence_as_vector_str}'
 
-                v.set([0, key, value])
+                # v.set([0, key, value])
 
         # build_as_word_embedding()
-        v = Value(amount)
+        # v = Value(amount)
 
         print('[Status] Fetch started')
-        result = v.all(self.table)
+        # result = v.all(self.table)
+        result = []
         print('[Status] Fetch ended')
 
         arr_x = []

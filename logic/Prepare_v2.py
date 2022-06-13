@@ -3,8 +3,6 @@ import numpy as np
 import config
 import pandas as pd
 
-from helpers.data import Data
-
 """
 How to use:
 1. Create a view in the database that suits your need.
@@ -36,10 +34,13 @@ class Prepare_v2:
             if not os.path.isfile(file_path_input):
 
                 # Get all data or a limited set.
+                """ Get the data by export from DB """
                 if limit is not None:
-                    self._df = Data().get_limit(table, limit)
+                    # self._df = Data().get_limit(table, limit)
+                    pass
                 else:
-                    self._df = Data().get(table)
+                    # self._df = Data().get(table)
+                    pass
 
                 self._df.to_csv(file_path_input, index=False)
 

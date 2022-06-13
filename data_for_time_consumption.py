@@ -1,13 +1,8 @@
-import re
-
 import numpy as np
 import pandas as pd
-from bs4 import BeautifulSoup
 
 import config
 from logic.Prepare_v2 import Prepare_v2
-from logic.PreprocessingText import PreprocessingText
-from objs.Request import Requests
 from datetime import datetime
 
 
@@ -22,13 +17,12 @@ def secondsUntil(time, hour):
 
 
 def solutionTime(start, end):
-
     if not isinstance(start, str) or not isinstance(end, str):
         return -1
 
     if start[0] == '0' or end[0] == '0':
         return -1
-    
+
     dt_start = datetime.fromisoformat(start)
     dt_end = datetime.fromisoformat(end)
 
@@ -71,7 +65,6 @@ def solutionTime(start, end):
 
 
 def features(r, rh):
-
     """
     The goal is to extract meaning full data other than just text.
     The features should enable the ability to train a model that can predict:
@@ -117,8 +110,6 @@ def features(r, rh):
         if isinstance(time_at_communication_first, datetime):
             time_at_communication_first = time_at_communication_first.strftime("%Y-%m-%d %H:%M:%S")
 
-
-
         minutes_until_reaction = solutionTime(time_at_received, time_at_reaction)
         minutes_until_communication_last = 0
         minutes_until_communication_first = 0
@@ -129,7 +120,6 @@ def features(r, rh):
             minutes_until_solved = minutes_until_communication_last
         else:
             minutes_until_solved = solutionTime(time_at_received, time_at_solved)
-
 
         request_id = x.id
         tmp.append({
@@ -145,25 +135,23 @@ def features(r, rh):
 
 
 def build():
-
     df = pd.DataFrame([], columns=['id', 'solvedTime', 'reactionTime', 'communicationLast', 'communicationFirst'])
-    rh = pd.read_csv('request_relation_history.csv')
+    r = pd.read_csv('data/request.csv')
+    rh = pd.read_csv('data/request_relation_history.csv')
 
     limit = 1000
     limit_max = int(86100 / limit)
 
     for i in range(0, limit_max + 1):
-        r = Requests().get(limit=limit, offset=i * limit, loads=[])
         d = features(r.requests, rh)
         df = pd.concat([df, d])
         print(i * 1000)
 
-    df.to_excel('timeConsumption.xlsx', index=False)
+    df.to_excel('output/time_consumption.xlsx', index=False)
 
 
 def timeConsumptionInspection():
-
-    timeConsumption = pd.read_excel(f'{config.BASE_PATH}/timeConsumption.xlsx')
+    timeConsumption = pd.read_excel(f'{config.BASE_PATH}/time_consumption.xlsx')
 
     table = 'request_tasktype_simple'
     p = Prepare_v2(table=table)
@@ -192,156 +180,11 @@ def timeConsumptionInspection():
     plt.show()
 
 
-def similarity():
-
-    # https://stackoverflow.com/questions/37558899/efficiently-finding-closest-word-in-tensorflow-embedding
-
-    import tensorflow as tf
-
-    x = 0
-    embeddings_index = {}
-    embedding_dim = 128
-    table = 'request_tasktype_simple'
-
-    we_path = f'{config.BASE_PATH}/logic/input/IHLP22/{table}_vecs_{embedding_dim}.txt'
-    # we_path = f'{config.BASE_PATH}/logic/input/CoNLL17/vecs.txt'
-    with open(we_path) as f:
-        for line in f:
-            if x < 1000000:
-                x = x + 1
-                word, coefs = line.split(maxsplit=1)
-                coefs = np.fromstring(coefs, "f", sep=" ")
-                embeddings_index[word] = coefs
-
-    data = embeddings_index.items()
-    data_list = list(data)
-    embedding_words = [e[0] for e in data_list if len(e[1]) == embedding_dim]
-    embedding = [e[1] for e in data_list if len(e[1]) == embedding_dim]
-
-    index = embedding_words.index('qtnumber')
-
-    embedding = np.array(embedding)
-    batch_array = np.array([embedding[index]])
-
-    normed_embedding = tf.nn.l2_normalize(embedding, dim=1)
-    normed_array = tf.nn.l2_normalize(batch_array, dim=1)
-
-    cosine_similarity = tf.matmul(normed_array, tf.transpose(normed_embedding, [1, 0]))
-    closest_k_words = tf.nn.top_k(cosine_similarity, k=10)
-    closest_k_words_arr = closest_k_words[1].numpy()[0]
-
-    print([item for (idx, item) in enumerate(embedding_words) if idx in closest_k_words_arr])
-
-
-def text():
-
-    print('Loading and merging text...')
-    
-    table_request = 'request_tasktype_simple'
-
-    df_request = pd.read_csv(f'{config.BASE_PATH}/cache/{table_request}.csv')
-    # df_request = df_request.head(10)
-
-    df_request_text = df_request[['description']]
-    df_request_text = df_request_text.rename(columns={'description': 'text'})
-
-    df_request_subject = df_request[['subject']]
-    df_request_subject = df_request_subject.rename(columns={'subject': 'text'})
-
-    table_communication = 'communication'
-
-    df_communication = pd.read_csv(f'{config.BASE_PATH}/cache/{table_communication}.csv')
-    # df_communication = df_communication.head(10)
-
-    df_communication_text = df_communication[['message']]
-    df_communication_text = df_communication_text.rename(columns={'message': 'text'})
-
-    df_communication_subject = df_communication[['subject']]
-    df_communication_subject = df_communication_subject.rename(columns={'subject': 'text'})
-
-    df = pd.concat([df_request_text, df_request_subject, df_communication_text, df_communication_subject], ignore_index=True)
-    
-    df = df.fillna('')
-    df_sentences = pd.DataFrame([], columns=['text'])
-
-    print('Transforming text...')
-
-    df['text'] = df.apply(lambda x: BeautifulSoup(x['text'], 'html.parser').text, axis=1)
-    df['text'] = df.apply(lambda x: re.sub('(bl\.a\.|bl\.a)', ' blandt andet ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('(evt\.)', ' eventuelt ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('[?!.]', '\n', x['text']), axis=1)
-
-    print('Constructing a lot of lines...')
-
-    line_length = 100
-    tmp = []
-
-    for idx, el in df.iterrows():
-        lines = el['text'].split('\n')
-        for line in lines:
-            tmp.append({'text': line})
-            if len(line) > line_length:
-                line_length = len(line)
-                print(f'Current longest line: {line_length}')
-        if idx % 1000 == 0:
-            length = len(df)
-            print(f'Index at: {idx}/{length}')
-
-    df = pd.DataFrame(tmp, columns=df_sentences.columns)
-
-    print('Transforming text even more...')
-
-    df['text'] = df.apply(lambda x: x.text.replace(u'\u00A0', ' '), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('[\[\]]+', ' ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('\\\\', ' eller ', x['text']), axis=1)
-
-    df['text'] = df.apply(lambda x: re.sub('[0-9]+[\S]+[A-Øa-ø]+', ' mix ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('[A-Øa-ø]+[\S]+[0-9]+', ' mix ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('(mix )+', ' mix ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('[0-9]+', ' number ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('(number )+', ' number ', x['text']), axis=1)
-
-    df['text'] = df.apply(lambda x: re.sub('[^\s\dA-Øa-ø_]+', ' ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: re.sub('\s\s+', ' ', x['text']), axis=1)
-    df['text'] = df.apply(lambda x: x['text'].strip().lower(), axis=1)
-
-    print('Saving all the lines...')
-
-    df = df[df['text'] != '']
-    df.to_csv('request_tasktype_simple_word_embedding.csv', index=False)
-    
-    print(df)
-
-
-def textInspect():
-    table_request = 'request_tasktype_simple'
-    df = pd.read_csv(f'{config.BASE_PATH}/cache/{table_request}_word_embedding.csv')
-    df = df.fillna('')
-    df = df[df['text'] != '']
-
-    print(len(df))  # 2907952
-
-    df['len'] = df.apply(lambda x: len(x['text']), axis=1)
-
-    df = df[df['len'] <= 200]
-    df = df[df['len'] >= 5]
-
-    remove_n = 1000000
-    drop_indices = np.random.choice(df.index, remove_n, replace=False)
-    df_subset = df.drop(drop_indices)
-
-    df_subset.to_csv(f'{config.BASE_PATH}/cache/{table_request}_word_embedding_shortened.csv', index=False)
-
-    print(len(df_subset))
-    pass
-
-
 def main():
+    # Build timeConsumption data
     # assert testSolutionTime()
     # build()
-    # similarity()
-    # text()
-    textInspect()
+    pass
 
 
 def testSolutionTime():

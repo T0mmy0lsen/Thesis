@@ -107,7 +107,7 @@ class WordEmbedding:
     SEED = 1337
     AUTOTUNE = tf.data.AUTOTUNE
 
-    def __init__(self, table='request', index_text='text', dim=64):
+    def __init__(self, table='request_tasktype_simple', index_text='text', dim=64):
 
         path = f'{config.BASE_PATH}/logic/input/IHLP22/{table}_vecs_{dim}.txt'
         if os.path.exists(path):
@@ -115,7 +115,7 @@ class WordEmbedding:
             print(msg)
             return
 
-        file_path = f'{config.BASE_PATH}/cache/{table}_word_embedding.csv'
+        file_path = f'{config.BASE_PATH}/cache/{table}_word_embedding_test.csv'
 
         if not os.path.exists(file_path):
             df = pd.read_csv(f'{config.BASE_PATH}/cache/{table}.csv')
@@ -158,8 +158,6 @@ class WordEmbedding:
             vocab_size=vocab_size,
             seed=WordEmbedding.SEED)
 
-        exit(0)
-
         targets = np.array(targets)
         contexts = np.array(contexts)[:, :, 0]
         labels = np.array(labels)
@@ -173,9 +171,7 @@ class WordEmbedding:
         BUFFER_SIZE = 10000
         dataset = tf.data.Dataset.from_tensor_slices(((targets, contexts), labels))
         dataset = dataset.shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
-        print(dataset)
 
-        dataset = dataset.cache().prefetch(buffer_size=WordEmbedding.AUTOTUNE)
         print(dataset)
 
         embedding_dim = dim
@@ -280,3 +276,5 @@ class WordEmbedding:
 
         self.write_out(targets, contexts, labels, idx)
         return targets, contexts, labels
+
+WordEmbedding()

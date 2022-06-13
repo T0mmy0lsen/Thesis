@@ -56,7 +56,24 @@ One thing I've done is using a sentence length of 10 when learning the embedding
 
 First I'll just train the model after making the new embedding.
     - Results; 0.129 after 200 epochs. No Dropout was used. Train and validation accuracy are mostly the same.
+    - So this was just run on the same word embedding. Don't know what I did wrong.
+    
+The new word embedding was made in WordEmbedding*-classes. The mayor issue here was the high amount of training data. Training the model (word embedding) as before just used all my 32GB ram and died out over night.
+I've changed the data input to the model.fit() such that data is loaded in chunks. Moreover, the training data for the word embedding is outputted in ~500.000 lines each.
 
+Right now I'm yielding 1024 each step (returning 1024 training rows from the data generator), which just seem like a waste of GPU utilization. 
+But I'll let it run its 10 epochs and see if I get any good embeddings for words like 'database', 'bruger', 'password', which was absolutely useless before.
+
+The CoNLL17 had some words that made sense compared to IHLP22. However, CoNLL17 came op with words that seems out of the Servicedesk context, which is probably why both word embeddings is performing the same.
+Recall that GloVe did worse than both Danish word embeddings. This is most likely due to having known words with embeddings that can be trained on.
+But those embeddings could be better, thus giving the rest of the deep learning model a hard time to learn anything useful.
+
+Here it comes!
+
+Say the word embeddings gives you a bunch of tags computed by frequency in Requests. These tags can be assigned to Supporters. The supporters takes a test that gives them the tags. The test can be made with prior Requests.
+So if a Supporter can solve certain issues - they will be assigned task like them. Then Servicedesk becomes the expert system. Moreover, when some solves a task - they may be automatically strengthened by certain tags an even given new tags. 
+
+What we do is assign Support issues to Supporters at work and schedule them to optimize throughput.
 """
 
 timeConsumption = pd.read_excel(f'{config.BASE_PATH}/timeConsumption.xlsx')
@@ -64,13 +81,14 @@ timeConsumption = pd.read_excel(f'{config.BASE_PATH}/timeConsumption.xlsx')
 # timeConsumption = timeConsumption.fillna(0)
 
 table = 'request_tasktype_simple'
-w = WordEmbedding(table)
+# w = WordEmbedding(table)
 p = Prepare_v2(table=table, limit=100)
 df = p.fetch()
 df = pd.merge(df, timeConsumption, how='inner')
 
 df = df[df['reactionTime'] >= 0]
 df = df[df['reactionTime'] < 480]
+df = df[df['tasktype'] == 'Support']
 
 
 def calc(x):
@@ -83,7 +101,7 @@ def normalize(x, max_val):
 
 
 df['label'] = df.apply(lambda x: calc(x), axis=1)
-df = df[df['label'] < 2400]
+df = df[df['label'] < 480]
 df = df[df['label'] >= 0]
 max_val = df.label.max()
 print(max_val)
@@ -151,13 +169,14 @@ embedding_layer = layers.Embedding(
 int_sequences_input = tf.keras.Input(shape=(None,), dtype="int64")
 embedded_sequences = embedding_layer(int_sequences_input)
 
-x = layers.Conv1D(32, 5, activation="relu")(embedded_sequences)
+x = layers.Conv1D(128, 5, activation="relu")(embedded_sequences)
 x = layers.MaxPooling1D(5)(x)
-x = layers.Conv1D(32, 5, activation="relu")(x)
+x = layers.Conv1D(128, 5, activation="relu")(x)
 x = layers.GlobalMaxPooling1D()(x)
-x = layers.Dense(16, activation="sigmoid")(x)
+x = layers.Dense(64, activation="sigmoid")(x)
+x = layers.Dropout(0.2)(x)
 
-preds = layers.Dense(1, activation="sigmoid")(x)
+preds = layers.Dense(1)(x)
 model = tf.keras.Model(int_sequences_input, preds)
 model.summary()
 
