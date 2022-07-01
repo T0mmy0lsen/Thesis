@@ -57,12 +57,11 @@ if 'text' not in df.columns:
     df['text'] = df.apply(lambda x: re.sub('(?<=hilsen).+', '', x['text']), axis=1)
     df['text'] = df.apply(lambda x: re.sub('(?<=regards).+', '', x['text']), axis=1)
     df['text'] = df.apply(lambda x: x['text'].strip().lower(), axis=1)
-
     df = df[df.text != '']
 
     df['lang'] = df.apply(lambda x: detect(x['text']), axis=1)
-
     df = df[df.lang.isin(['da', 'no'])]
+
     df = df.to_csv(f'{config.BASE_PATH}/cache/{table}.csv')
 
 w = WordEmbedding(table, index_text='text')

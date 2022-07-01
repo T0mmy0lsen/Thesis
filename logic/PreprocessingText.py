@@ -31,11 +31,7 @@ class PreprocessingText:
     def get_tokenized_text(line, language="danish"):
         return [token.lower() for token in word_tokenize(line, language=language) if token.isalnum()]
 
-    @staticmethod
-    def get_beautiful_text(line):
-        text = BeautifulSoup(line, "lxml").text
-        text = re.sub('[\n.]', ' ', text)
-        return text
+
 
     def __init__(self, df=None):
         print('[Status] Preprocessing text started')

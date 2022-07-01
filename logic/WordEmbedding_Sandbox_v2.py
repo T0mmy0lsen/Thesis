@@ -276,5 +276,3 @@ class WordEmbedding:
 
         self.write_out(targets, contexts, labels, idx)
         return targets, contexts, labels
-
-WordEmbedding()
